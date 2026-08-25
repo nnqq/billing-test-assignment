@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: billing-test-assignment
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  # The neighbours still carry the deprecated kubernetes.io/ingress.class
+  # annotation. The controller runs --ingress-class=nginx against IngressClass
+  # nginx, so the modern field selects the same controller without the warning.
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - billing-test-assignment.shopgrip.ru
+      secretName: billing-test-assignment-tls
+  rules:
+    - host: billing-test-assignment.shopgrip.ru
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: billing-test-assignment-api
+                port:
+                  number: 80

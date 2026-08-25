@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: billing-test-assignment-import
+  labels:
+    app: billing-test-assignment-import
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: billing-test-assignment-import
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: importer
+          image: busybox
+          command: ["/importer"]
+          env:
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mongo
+                  key: uri
+            - name: MONGO_DB
+              value: "billing-test-assignment"
+            - name: CSV_PATH
+              value: "/app/testdata/transactions.csv"
+            - name: IMPORT_TIMEOUT
+              value: "10m"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

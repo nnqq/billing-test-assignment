@@ -1,0 +1,53 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  # Runs to completion and exits. The api waits for it rather than importing
+  # itself, so a feed the parser chokes on fails the load and leaves the read
+  # model serving whatever is already in the database.
+  importer:
+    image: billing-test-assignment:local
+    build: .
+    entrypoint: ["/importer"]
+    restart: "no"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: "mongodb://mongo:27017"
+      MONGO_DB: "billing-test-assignment"
+      # путь внутри контейнера, файл кладётся туда Dockerfile-ом из ./testdata
+      CSV_PATH: "/app/testdata/transactions.csv"
+    # чтобы подсунуть другой файл без пересборки образа:
+    # volumes:
+    #   - ./testdata:/app/testdata:ro
+
+  api:
+    image: billing-test-assignment:local
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      importer:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+    environment:
+      HTTP_ADDR: ":8080"
+      MONGO_URI: "mongodb://mongo:27017"
+      MONGO_DB: "billing-test-assignment"
+
+volumes:
+  mongo-data:

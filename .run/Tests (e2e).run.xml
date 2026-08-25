@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Tests (e2e)" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="billing-test-assignment" />
+    <working_directory value="$PROJECT_DIR$" />
+    <envs>
+      <env name="API_BASE_URL" value="http://localhost:8080" />
+    </envs>
+    <go_parameters value="-count=1" />
+    <kind value="DIRECTORY" />
+    <package value="github.com/nnqq/billing-test-assignment/e2e" />
+    <directory value="$PROJECT_DIR$/e2e" />
+    <filePath value="$PROJECT_DIR$/e2e" />
+    <framework value="gotest" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="Stack (compose)" run_configuration_type="docker-deploy" />
+    </method>
+  </configuration>
+</component>

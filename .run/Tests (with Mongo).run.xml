@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Tests (with Mongo)" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="billing-test-assignment" />
+    <working_directory value="$PROJECT_DIR$" />
+    <envs>
+      <env name="MONGO_TEST_URI" value="mongodb://localhost:27017" />
+    </envs>
+    <go_parameters value="-count=1" />
+    <kind value="DIRECTORY" />
+    <package value="github.com/nnqq/billing-test-assignment/internal/storage/mongodb" />
+    <directory value="$PROJECT_DIR$/internal/storage/mongodb" />
+    <filePath value="$PROJECT_DIR$/internal/storage/mongodb" />
+    <framework value="gotest" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="Mongo (compose)" run_configuration_type="docker-deploy" />
+    </method>
+  </configuration>
+</component>

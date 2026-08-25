@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing-test-assignment-api
+spec:
+  selector:
+    app: billing-test-assignment-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

@@ -1,0 +1,103 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - master
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DEPLOY_NS: billing-test-assignment
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "IMAGE_TAG=master-${SHORT_SHA}" >> $GITHUB_ENV
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_CI_TOKEN }}
+
+      - name: Save DigitalOcean kubeconfig
+        run: doctl kubernetes cluster kubeconfig save k8s
+
+      - name: Stamp the image into the manifests
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+          sed -i "s|image: busybox|image: ${IMAGE}|" deploy/00_import_job.yaml deploy/01_deploy.yaml
+
+      # The load runs before the rollout, and a failed load stops the deploy:
+      # serving the new code over a half-imported collection is worse than not
+      # deploying at all. A Job's pod template is immutable, so the previous run
+      # is deleted rather than patched.
+      - name: Load the feed
+        run: |
+          kubectl -n ${{ env.DEPLOY_NS }} delete job billing-test-assignment-import \
+            --ignore-not-found --wait=true
+          kubectl -n ${{ env.DEPLOY_NS }} apply -f deploy/00_import_job.yaml
+          kubectl -n ${{ env.DEPLOY_NS }} wait --for=condition=complete \
+            job/billing-test-assignment-import --timeout=10m
+
+      - name: Show import logs on failure
+        if: failure()
+        run: kubectl -n ${{ env.DEPLOY_NS }} logs job/billing-test-assignment-import --tail=200
+
+      - name: Apply manifests
+        run: |
+          kubectl -n ${{ env.DEPLOY_NS }} apply -f deploy/01_deploy.yaml
+          kubectl -n ${{ env.DEPLOY_NS }} apply -f deploy/02_svc.yaml
+          kubectl -n ${{ env.DEPLOY_NS }} apply -f deploy/03_ingress.yaml
+          kubectl -n ${{ env.DEPLOY_NS }} rollout status deployment/billing-test-assignment-api --timeout=5m

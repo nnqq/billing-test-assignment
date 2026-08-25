@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing-test-assignment-api
+  labels:
+    app: billing-test-assignment-api
+spec:
+  # The api only reads. Loading the feed is a Job (00_import_job.yaml), so
+  # nothing here writes and replicas no longer contend for the unique
+  # transaction_id index the way two inline importers used to.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: billing-test-assignment-api
+  template:
+    metadata:
+      labels:
+        app: billing-test-assignment-api
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: billing-test-assignment-api
+          image: busybox
+          ports:
+            - containerPort: 8080
+              name: http
+          # Readiness pings mongo, liveness does not: a mongo blip should pull
+          # the pod out of the load balancer, not restart it.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 3
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            periodSeconds: 5
+          env:
+            - name: HTTP_ADDR
+              value: ":8080"
+            # Kept out of the manifest on purpose: this repository is public and
+            # the connection string names internal infrastructure. Create it in
+            # the namespace before the first deploy, see README.
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mongo
+                  key: uri
+            - name: MONGO_DB
+              value: "billing-test-assignment"
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"

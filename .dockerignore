@@ -1,0 +1,11 @@
+.git
+.idea
+.github
+Dockerfile
+docker-compose.yml
+Makefile
+README.md
+.run
+deploy
+.DS_Store
+e2e
