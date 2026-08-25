@@ -7,6 +7,37 @@ HTTP API, отдающее по Merchant ID оборот и заработанн
 Два бинаря: `cmd/importer` загружает фид и завершается, `cmd/api` только читает.
 Разделение не косметическое — см. [Импорт и API — разные процессы](#импорт-и-api--разные-процессы).
 
+## Живой стенд
+
+Раскатан из `master` в кластер DigitalOcean на том же CSV, поднимать локально
+ничего не нужно:
+
+```
+curl -s "https://billing-test-assignment.shopgrip.ru/merchants/M-1001/summary?from=2026-03-01T00:00:00%2B03:00&to=2026-04-01T00:00:00%2B03:00&currency=SAR"
+```
+
+```json
+{"merchant_id":"M-1001","period":{"from":"2026-02-28T21:00:00Z","to":"2026-03-31T21:00:00Z"},"totals":[{"currency":"SAR","turnover_minor":29861737,"refunds_minor":2411218,"net_minor":27450519,"fee_minor":510941,"sale_count":118,"refund_count":8,"fee_missing_count":2}]}
+```
+
+`%2B` в офсете обязателен: голый `+` в query-string декодируется в пробел.
+
+Без `currency` тот же мерчант приезжает тремя строками — SAR, USD и EUR:
+
+```
+curl -s "https://billing-test-assignment.shopgrip.ru/merchants/M-1001/summary"
+```
+
+Листинг с курсором и конверт ошибки:
+
+```
+curl -s "https://billing-test-assignment.shopgrip.ru/merchants?limit=3"
+curl -s "https://billing-test-assignment.shopgrip.ru/merchants/M-1001/summary?currency=SAT"
+```
+
+Аутентификации на стенде нет — сервис только читает, см.
+[Что осталось за рамками прототипа](#что-осталось-за-рамками-прототипа).
+
 ## Запуск
 
 ```
